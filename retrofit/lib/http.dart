@@ -354,10 +354,9 @@ class PreventNullToAbsent {
   const PreventNullToAbsent();
 }
 
-@immutable
 class JsonFunctions {
   final String? fromJson;
   final String? toJson;
 
-  const JsonFunctions({this.fromJson, this.toJson});
+  JsonFunctions({this.fromJson, this.toJson});
 }
