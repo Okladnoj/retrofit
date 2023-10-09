@@ -10,6 +10,7 @@ import 'package:built_collection/built_collection.dart';
 import 'package:code_builder/code_builder.dart';
 import 'package:dart_style/dart_style.dart';
 import 'package:dio/dio.dart';
+import 'package:retrofit/http.dart' as http;
 import 'package:retrofit/retrofit.dart' as retrofit;
 import 'package:source_gen/source_gen.dart';
 import 'package:tuple/tuple.dart';
@@ -2400,14 +2401,14 @@ extension IterableExtension<T> on Iterable<T> {
   }
 }
 
-JsonFunctions? _getJsonFunctionsAnnotation(MethodElement method) {
-  final jsonFuncsType = TypeChecker.fromRuntime(JsonFunctions);
+http.JsonFunctions? _getJsonFunctionsAnnotation(MethodElement method) {
+  final jsonFuncsType = TypeChecker.fromRuntime(http.JsonFunctions);
   final annotation = jsonFuncsType.firstAnnotationOf(method);
   if (annotation != null) {
     final reader = ConstantReader(annotation);
     final fromJson = reader.read('fromJson').stringValue;
     final toJson = reader.read('toJson').stringValue;
-    return JsonFunctions(fromJson: fromJson, toJson: toJson);
+    return http.JsonFunctions(fromJson: fromJson, toJson: toJson);
   }
   return null;
 }
