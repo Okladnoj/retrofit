@@ -2400,13 +2400,6 @@ extension IterableExtension<T> on Iterable<T> {
   }
 }
 
-class JsonFunctions {
-  final String? fromJson;
-  final String? toJson;
-
-  const JsonFunctions({this.fromJson, this.toJson});
-}
-
 JsonFunctions? _getJsonFunctionsAnnotation(MethodElement method) {
   final jsonFuncsType = TypeChecker.fromRuntime(JsonFunctions);
   final annotation = jsonFuncsType.firstAnnotationOf(method);
