@@ -428,8 +428,9 @@ class RetrofitGenerator extends GeneratorForAnnotation<retrofit.RestApi> {
           .statement,
     );
 
-    final preventNullToAbsent = _getMethodAnnotationByType(m, retrofit.PreventNullToAbsent);
-    
+    final preventNullToAbsent =
+        _getMethodAnnotationByType(m, retrofit.PreventNullToAbsent);
+
     if (preventNullToAbsent == null && headers.isNotEmpty) {
       blocks.add(
         const Code('$_localHeadersVar.removeWhere((k, v) => v == null);'),
@@ -824,7 +825,17 @@ You should create a new class to encapsulate the response.
           blocks.add(const Code('final value = $_resultVar.data!;'));
         }
       } else {
-        if (_isBasicType(returnType)) {
+        final jsonFuncsAnnotation = _getJsonFunctionsAnnotation(m);
+        var hasCustomJson =
+            jsonFuncsAnnotation != null && jsonFuncsAnnotation.fromJson != null;
+        if (hasCustomJson) {
+          final fromJsonFuncName = jsonFuncsAnnotation.fromJson;
+          blocks.add(Code('''
+            final value = $fromJsonFuncName($_resultVar.data);
+        '''));
+        }
+
+        if (!hasCustomJson && _isBasicType(returnType)) {
           blocks
             ..add(
               declareFinal(_resultVar)
@@ -1470,9 +1481,10 @@ if (T != dynamic &&
 
       blocks.add(refer('$queryParamsVar.addAll').call([expression]).statement);
     }
-    
-    final preventNullToAbsent = _getMethodAnnotationByType(m, retrofit.PreventNullToAbsent);
-    
+
+    final preventNullToAbsent =
+        _getMethodAnnotationByType(m, retrofit.PreventNullToAbsent);
+
     final anyNullable = m.parameters
         .any((p) => p.type.nullabilitySuffix == NullabilitySuffix.question);
 
@@ -1495,9 +1507,10 @@ if (T != dynamic &&
       );
       return;
     }
-    
-    final preventNullToAbsent = _getMethodAnnotationByType(m, retrofit.PreventNullToAbsent);
-    
+
+    final preventNullToAbsent =
+        _getMethodAnnotationByType(m, retrofit.PreventNullToAbsent);
+
     final annotation = _getAnnotation(m, retrofit.Body);
     final bodyName = annotation?.item1;
     if (bodyName != null) {
@@ -1526,41 +1539,54 @@ if (T != dynamic &&
           ((_typeChecker(List).isExactly(bodyTypeElement) ||
                   _typeChecker(BuiltList).isExactly(bodyTypeElement)) &&
               !_isBasicInnerType(bodyName.type))) {
-        switch (clientAnnotation.parser) {
-          case retrofit.Parser.JsonSerializable:
-          case retrofit.Parser.DartJsonMapper:
-            blocks.add(
-              declareFinal(dataVar)
-                  .assign(
-                    refer('''
+        final jsonFuncsAnnotation = _getJsonFunctionsAnnotation(m);
+        if (jsonFuncsAnnotation != null && jsonFuncsAnnotation.toJson != null) {
+          blocks.add(
+            declareFinal(dataVar)
+                .assign(
+                  refer('''
+            ${bodyName.displayName}.map((e) => ${jsonFuncsAnnotation.toJson}(e)).toList()
+            '''),
+                )
+                .statement,
+          );
+        } else {
+          switch (clientAnnotation.parser) {
+            case retrofit.Parser.JsonSerializable:
+            case retrofit.Parser.DartJsonMapper:
+              blocks.add(
+                declareFinal(dataVar)
+                    .assign(
+                      refer('''
             ${bodyName.displayName}.map((e) => e.toJson()).toList()
             '''),
-                  )
-                  .statement,
-            );
-            break;
-          case retrofit.Parser.MapSerializable:
-            blocks.add(
-              declareFinal(dataVar)
-                  .assign(
-                    refer('''
+                    )
+                    .statement,
+              );
+              break;
+            case retrofit.Parser.MapSerializable:
+              blocks.add(
+                declareFinal(dataVar)
+                    .assign(
+                      refer('''
             ${bodyName.displayName}.map((e) => e.toMap()).toList()
             '''),
-                  )
-                  .statement,
-            );
-            break;
-          case retrofit.Parser.FlutterCompute:
-            blocks.add(
-              declareFinal(dataVar)
-                  .assign(
-                    refer('''
+                    )
+                    .statement,
+              );
+              break;
+            case retrofit.Parser.FlutterCompute:
+              blocks.add(
+                declareFinal(dataVar)
+                    .assign(
+                      refer('''
             await compute(serialize${_displayString(_genericOf(bodyName.type))}List, ${bodyName.displayName})
             '''),
-                  )
-                  .statement,
-            );
-            break;
+                    )
+                    .statement,
+              );
+              break;
+          }
         }
       } else if (bodyTypeElement != null &&
           _typeChecker(File).isExactly(bodyTypeElement)) {
@@ -2372,4 +2398,23 @@ extension IterableExtension<T> on Iterable<T> {
     }
     return null;
   }
+}
+
+class JsonFunctions {
+  final String? fromJson;
+  final String? toJson;
+
+  const JsonFunctions({this.fromJson, this.toJson});
+}
+
+JsonFunctions? _getJsonFunctionsAnnotation(MethodElement method) {
+  final jsonFuncsType = TypeChecker.fromRuntime(JsonFunctions);
+  final annotation = jsonFuncsType.firstAnnotationOf(method);
+  if (annotation != null) {
+    final reader = ConstantReader(annotation);
+    final fromJson = reader.read('fromJson').stringValue;
+    final toJson = reader.read('toJson').stringValue;
+    return JsonFunctions(fromJson: fromJson, toJson: toJson);
+  }
+  return null;
 }
